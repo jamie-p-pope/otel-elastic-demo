@@ -1,0 +1,6 @@
+# Terraform state — contains resource IDs and may contain sensitive values
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
