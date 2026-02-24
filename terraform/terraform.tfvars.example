@@ -5,3 +5,12 @@
 
 elasticsearch_endpoint = "https://<deployment-id>.es.us-east-1.aws.elastic.cloud:443"
 elasticsearch_api_key  = "<your-api-key>"
+
+# Required by Elastic AWS org SCP — instances without these tags will be denied
+additional_tags = {
+  division   = "field"
+  org        = "sa"
+  team       = "amer-strat"
+  project    = "<your-name>"
+  keep-until = "2026-06-30"
+}

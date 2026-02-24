@@ -26,6 +26,12 @@ variable "elasticsearch_api_key" {
   sensitive   = true
 }
 
+variable "additional_tags" {
+  description = "Additional tags required by your AWS organization (e.g. division, org, team, project, keep-until)"
+  type        = map(string)
+  default     = {}
+}
+
 # ---------------------------------------------------------------------------
 # Security group
 # Ports: 22 (SSH), 8080/8089 (EDOT demo default), 8180/8189 (side-by-side)
@@ -83,9 +89,13 @@ resource "aws_security_group" "edot_demo" {
     description = "All outbound"
   }
 
-  tags = {
-    Name = "edot-demo"
-  }
+  tags = merge(
+    {
+      Name      = "edot-demo"
+      ManagedBy = "Terraform"
+    },
+    var.additional_tags
+  )
 }
 
 # ---------------------------------------------------------------------------
@@ -153,9 +163,13 @@ ENVEOF
     %{~ endif }
   EOF
 
-  tags = {
-    Name = "edot-demo"
-  }
+  tags = merge(
+    {
+      Name      = "edot-demo"
+      ManagedBy = "Terraform"
+    },
+    var.additional_tags
+  )
 }
 
 # ---------------------------------------------------------------------------
