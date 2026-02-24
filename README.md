@@ -258,7 +258,41 @@ The [Elastic fork](https://github.com/elastic/opentelemetry-demo) of the OTel de
 
 See [`elastic-otel-demo/README.md`](elastic-otel-demo/README.md) for full setup.
 
-**Quick path:**
+### Provision the EC2 (Terraform)
+
+A ready-to-use Terraform config lives at [`terraform/main.tf`](terraform/main.tf). It provisions a `t3.xlarge` (4 vCPU / 16 GB), installs Docker and git, and clones the repo automatically so the instance is ready to run `make start` on first SSH.
+
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars — set elasticsearch_endpoint and elasticsearch_api_key
+terraform init
+terraform apply
+```
+
+`terraform.tfvars` is gitignored — your credentials never touch the repo. If you skip the tfvars, the instance still provisions and clones the repo; you just fill in `.env.override` manually after SSH-ing in.
+
+**What gets provisioned:**
+
+| | |
+|---|---|
+| Instance type | `t3.xlarge` (4 vCPU / 16 GB RAM) |
+| OS | Ubuntu 22.04 LTS |
+| Bootstrapped | Docker (Compose v2), git, make |
+| On first boot | Clones this repo + `elastic/opentelemetry-demo` |
+| Ports open | 22, 8080, 8089 |
+| Credentials | Pre-configured from tfvars (if provided) |
+
+After `terraform apply` outputs the public IP:
+
+```bash
+ssh ubuntu@<public-ip>
+cd ~/otel-elastic-demo/elastic-otel-demo/opentelemetry-demo
+# If credentials were not pre-configured via tfvars, edit .env.override first
+make start
+```
+
+**Quick path (without Terraform):**
 
 ```bash
 cd elastic-otel-demo

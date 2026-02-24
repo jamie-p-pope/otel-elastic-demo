@@ -12,6 +12,21 @@ provider "aws" {
 }
 
 # ---------------------------------------------------------------------------
+# Optional credentials — set in terraform.tfvars (gitignored)
+# If provided, the instance will be pre-configured and ready to run make start
+# ---------------------------------------------------------------------------
+variable "elasticsearch_endpoint" {
+  description = "Elasticsearch endpoint for the EDOT demo (optional — fill in .env.override after launch if not provided)"
+  default     = ""
+}
+
+variable "elasticsearch_api_key" {
+  description = "Elasticsearch API key for the EDOT demo (optional)"
+  default     = ""
+  sensitive   = true
+}
+
+# ---------------------------------------------------------------------------
 # Security group
 # Ports: 22 (SSH), 8080/8089 (EDOT demo default), 8180/8189 (side-by-side)
 # ---------------------------------------------------------------------------
@@ -118,6 +133,24 @@ resource "aws_instance" "edot_demo" {
 
     usermod -aG docker ubuntu
     hostnamectl set-hostname edot-demo
+
+    # Clone the demo repo
+    sudo -u ubuntu git clone https://github.com/jamie-p-pope/otel-elastic-demo.git \
+      /home/ubuntu/otel-elastic-demo
+
+    # Pre-clone Elastic OTel demo so it's ready on first SSH
+    sudo -u ubuntu git clone https://github.com/elastic/opentelemetry-demo.git \
+      /home/ubuntu/otel-elastic-demo/elastic-otel-demo/opentelemetry-demo
+
+    %{~ if var.elasticsearch_endpoint != "" }
+    # Pre-configure Elastic credentials
+    cat > /home/ubuntu/otel-elastic-demo/elastic-otel-demo/opentelemetry-demo/.env.override <<ENVEOF
+ELASTICSEARCH_ENDPOINT=${var.elasticsearch_endpoint}
+ELASTICSEARCH_API_KEY=${var.elasticsearch_api_key}
+ENVEOF
+    chown ubuntu:ubuntu /home/ubuntu/otel-elastic-demo/elastic-otel-demo/opentelemetry-demo/.env.override
+    chmod 600 /home/ubuntu/otel-elastic-demo/elastic-otel-demo/opentelemetry-demo/.env.override
+    %{~ endif }
   EOF
 
   tags = {
@@ -141,11 +174,13 @@ output "ssh_command" {
 output "next_steps" {
   value = <<-MSG
     Instance ready. Next steps:
-      1. SSH in:       ssh ubuntu@${aws_instance.edot_demo.public_ip}
-      2. Clone repo:   git clone <your-github-repo-url>
-      3. Fill creds:   cd repo/elastic-otel-demo && cp .env.override.template opentelemetry-demo/.env.override
-      4. Start demo:   ./setup.sh
-      5. Frontend:     http://${aws_instance.edot_demo.public_ip}:8080
-      6. Locust:       http://${aws_instance.edot_demo.public_ip}:8089
+      1. SSH in:     ssh ubuntu@${aws_instance.edot_demo.public_ip}
+      2. Start demo: cd ~/otel-elastic-demo/elastic-otel-demo/opentelemetry-demo && make start
+      3. Frontend:   http://${aws_instance.edot_demo.public_ip}:8080
+      4. Locust:     http://${aws_instance.edot_demo.public_ip}:8089
+
+    Note: If elasticsearch_endpoint/elasticsearch_api_key were not set in
+    terraform.tfvars, edit .env.override before running make start:
+      ~/otel-elastic-demo/elastic-otel-demo/opentelemetry-demo/.env.override
   MSG
 }

@@ -46,13 +46,11 @@ if [ ! -f "$ENV_OVERRIDE" ]; then
   echo "  You need to fill in your Elastic credentials."
   echo "  Edit: $ENV_OVERRIDE"
   echo ""
-  echo "  For Elastic Cloud (hosted):"
-  echo "    ELASTIC_APM_SERVER_ENDPOINT=https://<apm-server>.elastic.cloud:443"
-  echo "    ELASTIC_APM_SECRET_TOKEN=<your-token>"
+  echo "  Required:"
+  echo "    ELASTICSEARCH_ENDPOINT=https://<deployment-id>.es.<region>.aws.elastic.cloud:443"
+  echo "    ELASTICSEARCH_API_KEY=<your-api-key>"
   echo ""
-  echo "  For Elastic Cloud Serverless:"
-  echo "    ELASTIC_OTLP_ENDPOINT=https://<project>.ingest.<region>.aws.elastic.cloud"
-  echo "    ELASTIC_API_KEY=<your-api-key>"
+  echo "  Get these from Kibana → Stack Management → API Keys"
   echo ""
   read -p "  Open .env.override in \$EDITOR now? [Y/n] " open_editor
   if [[ "$open_editor" != "n" && "$open_editor" != "N" ]]; then
