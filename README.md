@@ -113,13 +113,6 @@ exporters:
       Authorization: "ApiKey ${ELASTIC_API_KEY}"
 ```
 
-Set the environment variables before running the collector:
-
-```bash
-export ELASTIC_OTLP_ENDPOINT=https://<your-project>.ingest.us-east-1.aws.elastic.cloud
-export ELASTIC_API_KEY=<your-api-key>
-```
-
 The OTLP ingest endpoint and API key work for both **Elastic Cloud Hosted** and **Serverless**. Get your endpoint and API key from Kibana → Stack Management → API Keys.
 
 **Option A — Run as a systemd service (recommended for EC2):**
@@ -131,8 +124,18 @@ Download the binary from [opentelemetry-collector-releases](https://github.com/o
 wget https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.119.0/otelcol-contrib_0.119.0_linux_amd64.tar.gz
 tar -xzf otelcol-contrib_0.119.0_linux_amd64.tar.gz
 sudo mv otelcol-contrib /usr/local/bin/
-sudo mkdir -p /etc/otelcol-contrib
-sudo cp config.yml /etc/otelcol-contrib/config.yaml
+sudo mkdir -p /etc/otelcol
+sudo cp config.yml /etc/otelcol/config.yaml
+```
+
+Create the environment file with your credentials:
+
+```bash
+sudo tee /etc/otelcol/otelcol.env > /dev/null <<EOF
+ELASTIC_OTLP_ENDPOINT=https://<your-project>.ingest.us-east-1.aws.elastic.cloud
+ELASTIC_API_KEY=<your-api-key>
+EOF
+sudo chmod 600 /etc/otelcol/otelcol.env
 ```
 
 Create the systemd service:
@@ -144,11 +147,10 @@ Description=OpenTelemetry Collector Contrib
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/otelcol-contrib --config=/etc/otelcol-contrib/config.yaml
+ExecStart=/usr/local/bin/otelcol-contrib --config=/etc/otelcol/config.yaml
+EnvironmentFile=/etc/otelcol/otelcol.env
 Restart=always
 RestartSec=5
-Environment=ELASTIC_OTLP_ENDPOINT=https://<your-project>.ingest.us-east-1.aws.elastic.cloud
-Environment=ELASTIC_API_KEY=<your-api-key>
 
 [Install]
 WantedBy=multi-user.target
