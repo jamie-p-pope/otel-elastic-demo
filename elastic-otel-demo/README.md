@@ -53,11 +53,11 @@ cp ../.env.override.template .env.override
 Edit `.env.override`:
 
 ```bash
-# For Elastic Cloud (hosted)
-ELASTIC_APM_SERVER_ENDPOINT=https://<your-apm-server>.elastic.cloud:443
+# Option A: APM Server endpoint + secret token (older auth method)
+ELASTIC_APM_SERVER_ENDPOINT=https://<your-apm-server>.apm.us-east-1.aws.elastic.cloud:443
 ELASTIC_APM_SECRET_TOKEN=<your-secret-token>
 
-# OR for Elastic Cloud Serverless (OTLP endpoint + API key)
+# Option B: OTLP ingest endpoint + API key (recommended — works for Hosted and Serverless)
 ELASTIC_OTLP_ENDPOINT=https://<your-project>.ingest.us-east-1.aws.elastic.cloud
 ELASTIC_API_KEY=<your-api-key>
 ```
