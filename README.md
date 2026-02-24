@@ -138,11 +138,53 @@ export ELASTIC_API_KEY=<your-api-key>
 
 The OTLP ingest endpoint and API key work for both **Elastic Cloud Hosted** and **Serverless**. Get your endpoint and API key from Kibana → Stack Management → API Keys.
 
-**Run the collector (Docker):**
+**Option A — Run as a systemd service (recommended for EC2):**
+
+Download the binary from [opentelemetry-collector-releases](https://github.com/open-telemetry/opentelemetry-collector-releases/releases):
 
 ```bash
+# Example for Linux amd64 — check releases page for latest version
+wget https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.119.0/otelcol-contrib_0.119.0_linux_amd64.tar.gz
+tar -xzf otelcol-contrib_0.119.0_linux_amd64.tar.gz
+sudo mv otelcol-contrib /usr/local/bin/
+sudo mkdir -p /etc/otelcol-contrib
+sudo cp config.yml /etc/otelcol-contrib/config.yaml
+```
+
+Create the systemd service:
+
+```bash
+sudo tee /etc/systemd/system/otelcol-contrib.service > /dev/null <<EOF
+[Unit]
+Description=OpenTelemetry Collector Contrib
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/otelcol-contrib --config=/etc/otelcol-contrib/config.yaml
+Restart=always
+RestartSec=5
+Environment=ELASTIC_OTLP_ENDPOINT=https://<your-project>.ingest.us-east-1.aws.elastic.cloud
+Environment=ELASTIC_API_KEY=<your-api-key>
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable otelcol-contrib
+sudo systemctl start otelcol-contrib
+sudo systemctl status otelcol-contrib
+```
+
+**Option B — Run in Docker:**
+
+```bash
+ELASTIC_OTLP_ENDPOINT=https://<your-project>.ingest.us-east-1.aws.elastic.cloud \
+ELASTIC_API_KEY=<your-api-key> \
 docker run -d \
   --name otel-collector \
+  -e ELASTIC_OTLP_ENDPOINT \
+  -e ELASTIC_API_KEY \
   -v $(pwd)/config.yml:/etc/otelcol-contrib/config.yaml \
   -p 4317:4317 \
   -p 4318:4318 \
@@ -150,19 +192,12 @@ docker run -d \
   --config=/etc/otelcol-contrib/config.yaml
 ```
 
-**Or as a binary:**
-
-```bash
-# Download from: https://github.com/open-telemetry/opentelemetry-collector-releases/releases
-./otelcol-contrib --config=config.yml
-```
-
 Confirm it's listening:
 
 ```bash
-# Should show 0.0.0.0:4317 and 0.0.0.0:4318
+# Linux
 ss -tlnp | grep -E '4317|4318'
-# or on macOS:
+# macOS
 lsof -i :4317 -i :4318
 ```
 
@@ -229,9 +264,11 @@ In Elastic: Traces → service `otlp-sample-app`; Logs → `service.name: otlp-s
 
 ## Part 2: Elastic OTel Demo (EDOT)
 
-The [Elastic fork](https://github.com/elastic/opentelemetry-demo) of the OTel demo replaces vanilla agents with **EDOT** (Elastic Distribution of OpenTelemetry) across Java, .NET, Node.js, and Python services. The collector is also swapped for Elastic's distribution.
+The [Elastic fork](https://github.com/elastic/opentelemetry-demo) of the OTel demo replaces vanilla agents with **EDOT** (Elastic Distribution of OpenTelemetry) across Java, .NET, Node.js, and Python services.
 
-**Key difference:** EDOT adds Elastic-specific enrichments on top of standard OTel, providing tighter integration with Elastic's UI features.
+**Important:** The EDOT stack includes its own Elastic OTel Collector — you do **not** need to run a separate `otelcol-contrib`. The collector is part of the compose stack and starts automatically with `make start`. Credentials go in `.env.override`, not `config.yml`.
+
+**This runs on its own EC2 instance.** The full EDOT stack needs ~8–16 GB RAM. Do not try to run it on the same host as the vanilla demo.
 
 See [`elastic-otel-demo/README.md`](elastic-otel-demo/README.md) for full setup.
 
@@ -239,7 +276,7 @@ See [`elastic-otel-demo/README.md`](elastic-otel-demo/README.md) for full setup.
 
 ```bash
 cd elastic-otel-demo
-./setup.sh          # clones the repo, copies your .env.override, and runs demo.sh
+./setup.sh          # clones the repo, prompts for credentials, starts the demo
 ```
 
 Or manually:
@@ -248,29 +285,23 @@ Or manually:
 git clone https://github.com/elastic/opentelemetry-demo.git
 cd opentelemetry-demo
 cp ../elastic-otel-demo/.env.override.template .env.override
-# Edit .env.override with your Elastic endpoint + API key
+# Edit .env.override — set ELASTICSEARCH_ENDPOINT and ELASTICSEARCH_API_KEY
 make start
 ```
 
 ---
 
-## Running Both Simultaneously
+## Running Both Demos
 
-The vanilla demo uses ports **8080** and **8089**. To run both stacks at the same time, run the Elastic demo on different ports by setting these in its `.env.override`:
+Each demo stack (vanilla and EDOT) is a full 17-service application requiring **8–16 GB RAM**. Run them on **separate EC2 instances** — a single host does not have enough memory for both.
 
-```bash
-# elastic-otel-demo/.env.override — port offsets for side-by-side
-ENVOY_PORT=8180
-LOCUST_WEB_PORT=8189
-```
+| Stack | Host | Frontend | Load Generator |
+|-------|------|----------|----------------|
+| Vanilla OTel demo | vanilla EC2 | `http://<vanilla-ip>:8080` | `http://<vanilla-ip>:8089` |
+| Elastic OTel demo | EDOT EC2 | `http://<edot-ip>:8080` | `http://<edot-ip>:8089` |
+| Sample app | vanilla EC2 | `http://<vanilla-ip>:8000` | — |
 
-| Stack | Frontend | Load Generator |
-|-------|----------|----------------|
-| Vanilla OTel demo | `http://<host>:8080` | `http://<host>:8089` |
-| Elastic OTel demo | `http://<host>:8180` | `http://<host>:8189` |
-| Sample app | `http://<host>:8000` | — |
-
-Both will send telemetry to Elastic. You can compare service maps, trace quality, and attribute richness between the two instrumentation approaches.
+Both send telemetry to the same Elastic deployment. You can compare service maps, trace quality, and attribute richness side by side in Kibana APM.
 
 ---
 
@@ -318,29 +349,39 @@ sudo ss -tlnp | grep -E '8080|8089|8000|4317|4318'
 
 ## Quick Reference
 
-### Start everything (vanilla path)
+### Vanilla OTel path (vanilla EC2)
 
 ```bash
-# 1. Start collector (Docker)
-docker run -d --name otel-collector \
-  -v $(pwd)/config.yml:/etc/otelcol-contrib/config.yaml \
-  -p 4317:4317 -p 4318:4318 \
-  otel/opentelemetry-collector-contrib:latest \
-  --config=/etc/otelcol-contrib/config.yaml
+# 1. Start collector (systemd service — set credentials in the service file first)
+sudo systemctl start otelcol-contrib
 
-# 2. Start demo
+# 2. Start vanilla demo
 cd astrology-app && ./run-app-only.sh
 
 # 3. (Optional) Start sample app
 cd ../sample_app && ./sample-app.sh start && ./sample-app.sh traffic-start
 ```
 
-### Stop everything
-
+Stop:
 ```bash
 cd astrology-app && docker compose -f docker-compose.app-only.yml down
 cd ../sample_app && ./sample-app.sh stop
-docker stop otel-collector && docker rm otel-collector
+sudo systemctl stop otelcol-contrib
+```
+
+### EDOT path (separate EC2)
+
+```bash
+# First time only — clone + configure + start
+cd elastic-otel-demo && ./setup.sh
+
+# Subsequent starts
+cd elastic-otel-demo/opentelemetry-demo && make start
+```
+
+Stop:
+```bash
+cd elastic-otel-demo/opentelemetry-demo && make stop
 ```
 
 ---
