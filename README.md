@@ -108,28 +108,35 @@ processors:
   batch:
 
 exporters:
-  otlp/elastic:
-    endpoint: "https://<your-apm-server>.elastic.cloud:443"
+  otlphttp/elastic:
+    endpoint: "${ELASTIC_OTLP_ENDPOINT}"
     headers:
-      Authorization: "Bearer <your-secret-token>"
-    # For Serverless / API key auth use:
-    # Authorization: "ApiKey <your-api-key>"
+      Authorization: "ApiKey ${ELASTIC_API_KEY}"
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlp/elastic]
+      exporters: [otlphttp/elastic]
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlp/elastic]
+      exporters: [otlphttp/elastic]
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlp/elastic]
+      exporters: [otlphttp/elastic]
 ```
+
+Set the environment variables before running the collector:
+
+```bash
+export ELASTIC_OTLP_ENDPOINT=https://<your-project>.ingest.us-east-1.aws.elastic.cloud
+export ELASTIC_API_KEY=<your-api-key>
+```
+
+The OTLP ingest endpoint and API key work for both **Elastic Cloud Hosted** and **Serverless**. Get your endpoint and API key from Kibana → Stack Management → API Keys.
 
 **Run the collector (Docker):**
 
