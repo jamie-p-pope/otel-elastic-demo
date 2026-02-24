@@ -89,44 +89,28 @@ This repo demonstrates two approaches to sending OpenTelemetry signals (traces, 
 
 ### Step 1: Configure and run the OTel Collector
 
-The collector bridges your services to Elastic. It needs a config file (`config.yml`) that sets:
-- **Receiver:** OTLP (gRPC port 4317, HTTP port 4318)
-- **Exporter:** OTLP to your Elastic endpoint
+The collector bridges your services to Elastic. The working config is already in this repo at [`config.yml`](config.yml) — use that file directly, not a simplified substitute.
 
-Minimal `config.yml`:
+**What `config.yml` includes (and why it matters):**
+
+| Section | What it does |
+|---------|-------------|
+| `receivers.otlp` | Accepts OTLP traces/metrics/logs from Docker services on gRPC :4317 and HTTP :4318 |
+| `receivers.hostmetrics` | Scrapes CPU, memory, disk, filesystem, load average, network, and process metrics from the EC2 host itself |
+| `receivers.filelog` | Tails `/var/log/syslog` and `/var/log/auth.log` — gives you host-level logs in Elastic |
+| `processors.resourcedetection` (ec2) | Attaches EC2 metadata to every signal: `cloud.region`, `cloud.availability_zone`, `host.id` — enables Elastic's host correlation in Infrastructure |
+| `processors.filter/drop_opt_aws_processes` | Drops noisy AWS SSM/agent process metrics that pollute the metrics view |
+| `processors.batch` | Batches signals before export — reduces OTLP request volume |
+| `exporters.otlphttp/elastic` | Sends via OTLP/HTTP with API key auth — reads endpoint and key from environment variables at startup |
+
+The exporter section reads credentials from environment variables at startup:
 
 ```yaml
-receivers:
-  otlp:
-    protocols:
-      grpc:
-        endpoint: 0.0.0.0:4317
-      http:
-        endpoint: 0.0.0.0:4318
-
-processors:
-  batch:
-
 exporters:
   otlphttp/elastic:
     endpoint: "${ELASTIC_OTLP_ENDPOINT}"
     headers:
       Authorization: "ApiKey ${ELASTIC_API_KEY}"
-
-service:
-  pipelines:
-    traces:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [otlphttp/elastic]
-    metrics:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [otlphttp/elastic]
-    logs:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [otlphttp/elastic]
 ```
 
 Set the environment variables before running the collector:
@@ -391,7 +375,7 @@ cd elastic-otel-demo/opentelemetry-demo && make stop
 **Services start but no data in Elastic**
 - Check the collector is running and listening: `lsof -i :4317 -i :4318` (macOS) or `ss -tlnp | grep -E '4317|4318'` (Linux)
 - Check collector logs: `docker logs otel-collector`
-- Verify your Elastic endpoint and API key in `config.yml`
+- Verify `ELASTIC_OTLP_ENDPOINT` and `ELASTIC_API_KEY` are set correctly (in the systemd service `Environment=` lines, or exported in your shell)
 - For the demo app on EC2 (Linux), `host.docker.internal` is added via `extra_hosts` in the compose file — confirm it resolves: `docker exec frontend-proxy ping -c1 host.docker.internal`
 
 **Frontend unreachable from browser**
@@ -417,7 +401,7 @@ cd elastic-otel-demo/opentelemetry-demo && make stop
 ```
 OpenTelemetry-Apps-Master/
 ├── README.md                         ← You are here
-├── config.yml                        ← OTel Collector config (create from template above)
+├── config.yml                        ← OTel Collector config (production-tested, use this directly)
 ├── astrology-app/                    ← Vanilla OTel demo (app-only stack)
 │   ├── docker-compose.app-only.yml   ← 17-service compose, no observability stack
 │   ├── .env                          ← Image versions, service ports
