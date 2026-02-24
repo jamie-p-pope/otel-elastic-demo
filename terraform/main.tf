@@ -91,7 +91,7 @@ resource "aws_security_group" "edot_demo" {
 
   tags = merge(
     {
-      Name      = "edot-demo"
+      Name      = "jamiepope-edot-demo"
       ManagedBy = "Terraform"
     },
     var.additional_tags
@@ -165,7 +165,7 @@ ENVEOF
 
   tags = merge(
     {
-      Name      = "edot-demo"
+      Name      = "jamiepope-edot-demo"
       ManagedBy = "Terraform"
     },
     var.additional_tags
