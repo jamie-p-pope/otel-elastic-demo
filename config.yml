@@ -1,0 +1,161 @@
+# ===============================================================
+# VANILLA RESET + CLEAN NAMING
+# Restored: expanded hostmetrics, process scraper, filter, resourcedetection/logs
+# ===============================================================
+
+receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+    filelog:
+      include:
+        - /var/log/syslog
+        - /var/log/auth.log
+      start_at: beginning
+    hostmetrics:
+      collection_interval: 30s
+      scrapers:
+        cpu:
+          metrics:
+            system.cpu.utilization:
+              enabled: true
+            system.cpu.logical.count:
+              enabled: true
+        memory:
+          metrics:
+            system.memory.utilization:
+              enabled: true
+        disk:
+        filesystem:
+          metrics:
+            system.filesystem.utilization:
+              enabled: true
+        load:
+          metrics:
+            system.cpu.load_average.1m:
+              enabled: true
+            system.cpu.load_average.5m:
+              enabled: true
+            system.cpu.load_average.15m:
+              enabled: true
+        network:
+          metrics:
+            system.network.io:
+              enabled: true
+            system.network.packets:
+              enabled: true
+            system.network.errors:
+              enabled: true
+            system.network.dropped:
+              enabled: true
+            system.network.connections:
+              enabled: true
+        paging:
+        processes:
+          metrics:
+            system.processes.count:
+              enabled: true
+            system.processes.created:
+              enabled: true
+        # process:  # disabled to avoid noisy /proc race errors (exited PIDs)
+        #   mute_process_exe_error: true
+        #   mute_process_io_error: true
+        #   mute_process_user_error: true
+        #   metrics:
+        #     process.cpu.time:
+        #       enabled: true
+        #     process.cpu.utilization:
+        #       enabled: true
+        #     process.memory.usage:
+        #       enabled: true
+        #     process.memory.virtual:
+        #       enabled: true
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 512
+  filter/drop_opt_aws_processes:
+    error_mode: ignore
+    metrics:
+      resource:
+        - 'IsMatch(attributes["process.executable.path"], ".*/opt/aws.*")'
+  resourcedetection:
+    detectors: [env, system, ec2, gcp]
+    system:
+      hostname_sources: ["os"]
+      resource_attributes:
+        host.name:
+          enabled: true
+        host.id:
+          enabled: true
+        os.type:
+          enabled: true
+    ec2:
+      resource_attributes:
+        host.name:
+          enabled: true
+        host.id:
+          enabled: true
+        cloud.region:
+          enabled: true
+        cloud.availability_zone:
+          enabled: true
+  resourcedetection/logs:
+    detectors: [env, system, ec2]
+    system:
+      hostname_sources: ["os"]
+      resource_attributes:
+        host.name:
+          enabled: true
+        host.id:
+          enabled: true
+        os.type:
+          enabled: true
+    ec2:
+      resource_attributes:
+        host.name:
+          enabled: true
+        host.id:
+          enabled: true
+        cloud.region:
+          enabled: true
+        cloud.availability_zone:
+          enabled: true
+  resourcedetection/logs_host:
+    detectors: [system]
+    system:
+      hostname_sources: ["os"]
+      resource_attributes:
+        host.name:
+          enabled: true
+        host.id:
+          enabled: true
+        os.type:
+          enabled: true
+
+exporters:
+    otlphttp/elastic:
+      endpoint: "${ELASTIC_OTLP_ENDPOINT}"
+      headers:
+        Authorization: "ApiKey ${ELASTIC_API_KEY}"
+    # debug:
+    #   verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resourcedetection, batch]
+      exporters: [otlphttp/elastic]
+    metrics:
+      receivers: [otlp, hostmetrics]
+      processors: [resourcedetection, filter/drop_opt_aws_processes, batch]
+      exporters: [otlphttp/elastic]
+    logs:
+      receivers: [otlp, filelog]
+      processors: [resourcedetection/logs_host, batch]
+      exporters: [otlphttp/elastic]

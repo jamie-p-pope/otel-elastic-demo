@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Elastic demo runtime clone (cloned at setup time, not committed)
+elastic-otel-demo/opentelemetry-demo/
+
+# Credentials / secrets
+.env.override
+
+# OMC / Claude session state (internal tooling)
+.omc/
+.claude/
+
+# Internal workflow docs (not for team)
+continue-conversation.md
+GITHUB-PROJECT-SETUP.md
