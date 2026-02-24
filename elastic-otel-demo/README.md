@@ -27,8 +27,8 @@ This directory contains setup files for the **Elastic fork** of the OpenTelemetr
 - `make` (usually pre-installed on macOS/Linux)
 - Git
 - Elastic credentials:
-  - **Elasticsearch endpoint** (e.g. `https://my-cluster.es.us-east-1.aws.elastic.cloud`)
-  - **API key** (from Kibana → Stack Management → API Keys)
+  - **Elasticsearch endpoint** (e.g. `https://<deployment-id>.es.us-east-1.aws.elastic.cloud:443`)
+  - **API key** (Kibana → Stack Management → API Keys → Create API key)
 
 ---
 
@@ -53,13 +53,10 @@ cp ../.env.override.template .env.override
 Edit `.env.override`:
 
 ```bash
-# Option A: APM Server endpoint + secret token (older auth method)
-ELASTIC_APM_SERVER_ENDPOINT=https://<your-apm-server>.apm.us-east-1.aws.elastic.cloud:443
-ELASTIC_APM_SECRET_TOKEN=<your-secret-token>
-
-# Option B: OTLP ingest endpoint + API key (recommended — works for Hosted and Serverless)
-ELASTIC_OTLP_ENDPOINT=https://<your-project>.ingest.us-east-1.aws.elastic.cloud
-ELASTIC_API_KEY=<your-api-key>
+# The Elastic demo sends directly to Elasticsearch — not via the OTLP ingest endpoint.
+# Note: this is different from the vanilla collector path (which uses ELASTIC_OTLP_ENDPOINT).
+ELASTICSEARCH_ENDPOINT=https://<your-deployment>.es.us-east-1.aws.elastic.cloud:443
+ELASTICSEARCH_API_KEY=<your-api-key>
 ```
 
 ### 3. Start the demo
