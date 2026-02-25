@@ -35,7 +35,17 @@ else
   git clone https://github.com/elastic/opentelemetry-demo.git "$CLONE_DIR"
 fi
 
-# ── Step 2: .env.override ────────────────────────────────────────────────────
+# ── Step 2: Apply local collector overrides ──────────────────────────────────
+# Copy our otelcol-config-extras.yml over the upstream (adds ec2 resourcedetection)
+EXTRAS_SRC="$SCRIPT_DIR/otelcol-config-extras.yml"
+EXTRAS_DST="$CLONE_DIR/src/otel-collector/otelcol-config-extras.yml"
+if [ -f "$EXTRAS_SRC" ]; then
+  echo "→ Applying collector config overrides..."
+  cp "$EXTRAS_SRC" "$EXTRAS_DST"
+  echo "✓ otelcol-config-extras.yml applied"
+fi
+
+# ── Step 3: .env.override ────────────────────────────────────────────────────
 ENV_OVERRIDE="$CLONE_DIR/.env.override"
 
 if [ ! -f "$ENV_OVERRIDE" ]; then
@@ -60,7 +70,7 @@ else
   echo "✓ .env.override already exists — using existing credentials"
 fi
 
-# ── Step 3: Side-by-side port offsets ────────────────────────────────────────
+# ── Step 4: Side-by-side port offsets ────────────────────────────────────────
 if [ "$SIDE_BY_SIDE" = true ]; then
   echo ""
   echo "→ --side-by-side: setting ports 8180/8189 in .env.override..."
@@ -79,7 +89,7 @@ else
   echo "  Locust:    http://localhost:8089"
 fi
 
-# ── Step 4: Start ────────────────────────────────────────────────────────────
+# ── Step 5: Start ────────────────────────────────────────────────────────────
 echo ""
 echo "→ Starting the Elastic OTel demo..."
 echo ""

@@ -1,0 +1,16 @@
+# otelcol-config-extras.yml — Elastic demo collector overrides
+#
+# This file is copied over the upstream otelcol-config-extras.yml after cloning.
+# See setup.sh Step 2.
+#
+# Merges with src/otel-collector/otelcol-config.yml via --config flag.
+
+processors:
+  resourcedetection:
+    # Add ec2 detector so host.name/host.ip reflect the EC2 instance, not the
+    # Docker container. Requires IMDSv2 hop limit >= 2 on the EC2 instance:
+    #   aws ec2 modify-instance-metadata-options \
+    #     --instance-id <id> --http-put-response-hop-limit 2 --region us-east-1
+    detectors: [ec2, env, docker, system]
+    timeout: 5s
+    override: false
