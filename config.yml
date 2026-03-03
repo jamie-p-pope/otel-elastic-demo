@@ -60,24 +60,29 @@ receivers:
               enabled: true
             system.processes.created:
               enabled: true
-        # process:  # disabled to avoid noisy /proc race errors (exited PIDs)
-        #   mute_process_exe_error: true
-        #   mute_process_io_error: true
-        #   mute_process_user_error: true
-        #   metrics:
-        #     process.cpu.time:
-        #       enabled: true
-        #     process.cpu.utilization:
-        #       enabled: true
-        #     process.memory.usage:
-        #       enabled: true
-        #     process.memory.virtual:
-        #       enabled: true
+        process:
+          mute_process_exe_error: true
+          mute_process_io_error: true
+          mute_process_user_error: true
+          metrics:
+            process.cpu.time:
+              enabled: true
+            process.cpu.utilization:
+              enabled: true
+            process.memory.usage:
+              enabled: true
+            process.memory.virtual:
+              enabled: true
 
 processors:
   batch:
     timeout: 1s
     send_batch_size: 512
+  filter/drop_opt_aws_processes:
+    error_mode: ignore
+    metrics:
+      resource:
+        - 'IsMatch(attributes["process.executable.path"], ".*/opt/aws.*")'
   resourcedetection:
     detectors: [env, system, ec2, gcp]
     system:
@@ -148,7 +153,7 @@ service:
       exporters: [otlphttp/elastic]
     metrics:
       receivers: [otlp, hostmetrics]
-      processors: [resourcedetection, batch]
+      processors: [resourcedetection, filter/drop_opt_aws_processes, batch]
       exporters: [otlphttp/elastic]
     logs:
       receivers: [otlp, filelog]
