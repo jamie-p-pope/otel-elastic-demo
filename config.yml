@@ -78,6 +78,11 @@ processors:
   batch:
     timeout: 1s
     send_batch_size: 512
+  filter/drop_opt_aws_processes:
+    error_mode: ignore
+    metrics:
+      metric:
+        - 'IsMatch(resource.attributes["process.executable.path"], ".*/opt/aws.*")'
   resourcedetection:
     detectors: [env, system, ec2, gcp]
     system:
@@ -148,7 +153,7 @@ service:
       exporters: [otlphttp/elastic]
     metrics:
       receivers: [otlp, hostmetrics]
-      processors: [resourcedetection, batch]
+      processors: [resourcedetection, filter/drop_opt_aws_processes, batch]
       exporters: [otlphttp/elastic]
     logs:
       receivers: [otlp, filelog]
