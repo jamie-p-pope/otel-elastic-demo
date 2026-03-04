@@ -6,7 +6,8 @@
 # Merges with src/otel-collector/otelcol-config.yml via --config flag.
 
 processors:
-  resourcedetection:
+  resourcedetection/system:
+    # Overrides the main config's resourcedetection/system processor.
     # ec2 is listed LAST so its attributes win when override: true.
     # With override: true, each detector overwrites the previous — putting ec2
     # last ensures host.name = EC2 hostname (not the Docker container's hostname).
