@@ -252,25 +252,27 @@ In Elastic: Traces → service `otlp-sample-app`; Logs → `service.name: otlp-s
 
 The [Elastic fork](https://github.com/elastic/opentelemetry-demo) of the OTel demo replaces vanilla agents with **EDOT** (Elastic Distribution of OpenTelemetry) across Java, .NET, Node.js, and Python services.
 
-**Important:** The EDOT stack includes its own Elastic OTel Collector — you do **not** need to run a separate `otelcol-contrib`. The collector is part of the compose stack and starts automatically with `make start`. Credentials go in `.env.override`, not `config.yml`.
+**Important:** The EDOT stack uses **Elastic Agent** as its collector (running inside Docker as part of the compose stack). You do **not** need a separate `otelcol-contrib`. The Elastic Agent collector starts automatically with `make start` and exports all signals directly to Elastic Cloud. Credentials go in `.env.override`, not `config.yml`.
 
 **This runs on its own EC2 instance.** The full EDOT stack needs ~8–16 GB RAM. Do not try to run it on the same host as the vanilla demo.
 
 See [`elastic-otel-demo/README.md`](elastic-otel-demo/README.md) for full setup.
 
-### Provision the EC2 (Terraform)
+### Provision the EC2
 
-A ready-to-use Terraform config lives at [`terraform/main.tf`](terraform/main.tf). It provisions a `t3.xlarge` (4 vCPU / 16 GB), installs Docker and git, and clones the repo automatically so the instance is ready to run `make start` on first SSH.
+EC2 provisioning for the EDOT demo is handled by
+[elastic-demo-generator](https://github.com/jamie-p-pope/elastic-demo-generator):
 
 ```bash
-cd terraform
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars — set elasticsearch_endpoint and elasticsearch_api_key
-terraform init
-terraform apply
+cd ../elastic-demo-generator
+./deploy.sh          # pick Astronomy EDOT, supply credentials
+./deploy.sh --destroy  # tear down when done
 ```
 
-`terraform.tfvars` is gitignored — your credentials never touch the repo. If you skip the tfvars, the instance still provisions and clones the repo; you just fill in `.env.override` manually after SSH-ing in.
+The deploy script provisions a `t3.xlarge` (Ubuntu 22.04, 30 GB gp3), installs
+Docker and git, clones both `otel-elastic-demo` and `elastic/opentelemetry-demo`,
+pre-builds `product-catalog`, and writes credentials into `.env.override`. The
+instance is ready to run `make start` on first SSH after ~15 minutes.
 
 **What gets provisioned:**
 
@@ -278,34 +280,35 @@ terraform apply
 |---|---|
 | Instance type | `t3.xlarge` (4 vCPU / 16 GB RAM) |
 | OS | Ubuntu 22.04 LTS |
-| Bootstrapped | Docker (Compose v2), git, make |
-| On first boot | Clones this repo + `elastic/opentelemetry-demo` |
+| Bootstrapped | Docker (Compose v2), git, make, product-catalog built |
+| On first boot | Clones `otel-elastic-demo` + `elastic/opentelemetry-demo` |
 | Ports open | 22, 8080, 8089 |
-| Credentials | Pre-configured from tfvars (if provided) |
+| Credentials | Pre-written to `.env.override` from deploy prompts |
 
-After `terraform apply` outputs the public IP:
+After the instance is up (~15 min):
 
 ```bash
 ssh ubuntu@<public-ip>
 cd ~/otel-elastic-demo/elastic-otel-demo/opentelemetry-demo
-# If credentials were not pre-configured via tfvars, edit .env.override first
 make start
 ```
 
-**Quick path (without Terraform):**
+**Credential format:** The EDOT demo uses `ELASTICSEARCH_ENDPOINT` +
+`ELASTICSEARCH_API_KEY`. The endpoint is your **Elasticsearch** endpoint
+(`https://<id>.es.<region>.aws.elastic.cloud:443` for ESS), not the OTLP
+endpoint. The API key needs cluster + index permissions (superuser role is
+simplest for demo use).
 
-```bash
-cd elastic-otel-demo
-./setup.sh          # clones the repo, prompts for credentials, starts the demo
-```
-
-Or manually:
+**Quick path (local, without EC2):**
 
 ```bash
 git clone https://github.com/elastic/opentelemetry-demo.git
 cd opentelemetry-demo
-cp ../elastic-otel-demo/.env.override.template .env.override
-# Edit .env.override — set ELASTICSEARCH_ENDPOINT and ELASTICSEARCH_API_KEY
+# Append your credentials (do NOT overwrite — OTEL_COLLECTOR_CONFIG is already set)
+cat >> .env.override <<EOF
+ELASTICSEARCH_ENDPOINT=https://<id>.es.<region>.aws.elastic.cloud:443
+ELASTICSEARCH_API_KEY=<your-api-key>
+EOF
 make start
 ```
 
@@ -313,15 +316,18 @@ make start
 
 ## Running Both Demos
 
-Each demo stack (vanilla and EDOT) is a full 17-service application requiring **8–16 GB RAM**. Run them on **separate EC2 instances** — a single host does not have enough memory for both.
+Each demo stack is a full 17–28 service application requiring **8–16 GB RAM**.
+Run them on **separate EC2 instances** — both listen on the same ports (8080, 8089)
+so they cannot share a host.
 
-| Stack | Host | Frontend | Load Generator |
-|-------|------|----------|----------------|
+| Stack | Instance | Frontend | Load Generator |
+|-------|----------|----------|----------------|
 | Vanilla OTel demo | vanilla EC2 | `http://<vanilla-ip>:8080` | `http://<vanilla-ip>:8089` |
-| Elastic OTel demo | EDOT EC2 | `http://<edot-ip>:8080` | `http://<edot-ip>:8089` |
+| EDOT demo | EDOT EC2 | `http://<edot-ip>:8080` | `http://<edot-ip>:8089` |
 | Sample app | vanilla EC2 | `http://<vanilla-ip>:8000` | — |
 
-Both send telemetry to the same Elastic deployment. You can compare service maps, trace quality, and attribute richness side by side in Kibana APM.
+Both send telemetry to the same Elastic deployment. You can compare service maps,
+trace quality, and attribute richness side by side in Kibana APM.
 
 ---
 
