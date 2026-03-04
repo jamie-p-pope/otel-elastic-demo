@@ -7,10 +7,10 @@
 
 processors:
   resourcedetection:
-    # Add ec2 detector so host.name/host.ip reflect the EC2 instance, not the
-    # Docker container. Requires IMDSv2 hop limit >= 2 on the EC2 instance:
-    #   aws ec2 modify-instance-metadata-options \
-    #     --instance-id <id> --http-put-response-hop-limit 2 --region us-east-1
-    detectors: [ec2, env, docker, system]
+    # ec2 is listed LAST so its attributes win when override: true.
+    # With override: true, each detector overwrites the previous — putting ec2
+    # last ensures host.name = EC2 hostname (not the Docker container's hostname).
+    # Requires IMDSv2 hop limit >= 2 on the EC2 instance (set in main.tf).
+    detectors: [env, docker, system, ec2]
     timeout: 5s
-    override: false
+    override: true
