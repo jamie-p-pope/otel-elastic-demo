@@ -88,13 +88,22 @@ fi
 if docker ps --format '{{.Names}}' | grep -q '^otel-collector$'; then
   echo "✓ OTel Collector already running"
 else
+  if [[ -z "${ELASTIC_OTLP_ENDPOINT:-}" || -z "${ELASTIC_API_KEY:-}" ]]; then
+    echo "ERROR: ELASTIC_OTLP_ENDPOINT and ELASTIC_API_KEY must be set in the environment."
+    echo ""
+    echo "  export ELASTIC_OTLP_ENDPOINT=https://<id>.apm.<region>.aws.elastic.cloud"
+    echo "  export ELASTIC_API_KEY=<your-api-key>"
+    exit 1
+  fi
   echo "→ Starting OTel Collector..."
   docker run -d \
     --name otel-collector \
     -v "$CONFIG_FILE:/etc/otelcol-contrib/config.yaml" \
+    -e ELASTIC_OTLP_ENDPOINT \
+    -e ELASTIC_API_KEY \
     -p 4317:4317 \
     -p 4318:4318 \
-    otel/opentelemetry-collector-contrib:latest \
+    otel/opentelemetry-collector-contrib:0.145.0 \
     --config=/etc/otelcol-contrib/config.yaml
   echo "✓ Collector started (ports 4317, 4318)"
 fi

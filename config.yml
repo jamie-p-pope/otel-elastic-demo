@@ -139,9 +139,9 @@ processors:
 
 exporters:
     otlphttp/elastic:
-      endpoint: "${ELASTIC_OTLP_ENDPOINT}"
+      endpoint: "${env:ELASTIC_OTLP_ENDPOINT}"
       headers:
-        Authorization: "ApiKey ${ELASTIC_API_KEY}"
+        Authorization: "ApiKey ${env:ELASTIC_API_KEY}"
     # debug:
     #   verbosity: basic
 
