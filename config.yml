@@ -30,6 +30,9 @@ receivers:
               enabled: true
         disk:
         filesystem:
+          exclude_fs_types:
+            fs_types: [squashfs, tmpfs, devtmpfs]
+            match_type: strict
           metrics:
             system.filesystem.utilization:
               enabled: true
