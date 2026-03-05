@@ -27,6 +27,11 @@ receivers:
         field: attributes.time
 
 processors:
+  # Convert cumulative temporality → delta so elasticsearch/otel exporter does not
+  # drop histograms (http.server.request.duration, db.client.*, etc.).
+  # The elasticsearch/otel exporter (v0.137.0+) only accepts delta temporality.
+  cumulativetodelta: {}
+
   resourcedetection/system:
     # Overrides the main config's resourcedetection/system processor.
     # ec2 is listed LAST so its attributes win when override: true.
@@ -39,6 +44,13 @@ processors:
 
 service:
   pipelines:
+    # Override the upstream metrics pipeline to insert cumulativetodelta.
+    # Must list all receivers/exporters exactly as upstream (pipeline replace-by-key).
+    metrics:
+      receivers: [httpcheck/frontendproxy, otlp, spanmetrics]
+      processors: [cumulativetodelta, batch/metrics]
+      exporters: [elasticsearch/otel, elasticapm, debug]
+
     # New pipeline for Docker container logs — separate from the existing
     # "logs" pipeline (which only collects OTLP-pushed logs from apps).
     logs/container:
