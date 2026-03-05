@@ -5,6 +5,27 @@
 #
 # Merges with src/otel-collector/otelcol-config.yml via --config flag.
 
+receivers:
+  # Collect Docker container stdout/stderr logs from the host filesystem.
+  # The collector has / → /hostfs, so host Docker logs are at /hostfs/var/lib/docker/containers.
+  filelog/containers:
+    include:
+      - /hostfs/var/lib/docker/containers/*/*.log
+    include_file_path: true
+    include_file_name: false
+    operators:
+      # Docker writes logs as JSON: {"log":"...","stream":"stdout","time":"..."}
+      - type: json_parser
+        id: docker_json
+      - type: move
+        from: attributes.log
+        to: body
+      - type: move
+        from: attributes.stream
+        to: attributes["log.iostream"]
+      - type: remove
+        field: attributes.time
+
 processors:
   resourcedetection/system:
     # Overrides the main config's resourcedetection/system processor.
@@ -15,3 +36,12 @@ processors:
     detectors: [env, docker, system, ec2]
     timeout: 5s
     override: true
+
+service:
+  pipelines:
+    # New pipeline for Docker container logs — separate from the existing
+    # "logs" pipeline (which only collects OTLP-pushed logs from apps).
+    logs/container:
+      receivers: [filelog/containers]
+      processors: [resourcedetection/system, batch]
+      exporters: [elasticsearch/otel]
