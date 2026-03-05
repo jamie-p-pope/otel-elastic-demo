@@ -51,6 +51,15 @@ service:
       processors: [cumulativetodelta, batch/metrics]
       exporters: [elasticsearch/otel, elasticapm, debug]
 
+    # Override the upstream traces pipeline to stamp host.name on APM traces.
+    # Without this, resourcedetection/system is never applied to traces and
+    # host.name is missing → APM node name shows "(Empty)", no CPU/Memory in APM.
+    # Upstream processors: [transform, batch, elasticapm] — prepend resourcedetection/system.
+    traces:
+      receivers: [otlp]
+      processors: [resourcedetection/system, transform, batch, elasticapm]
+      exporters: [elasticsearch/otel, debug, spanmetrics, elasticapm]
+
     # New pipeline for Docker container logs — separate from the existing
     # "logs" pipeline (which only collects OTLP-pushed logs from apps).
     logs/container:
